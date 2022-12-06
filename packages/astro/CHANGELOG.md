@@ -1,5 +1,71 @@
 # astro
 
+## 1.6.12
+
+### Patch Changes
+
+- [#5484](https://github.com/withastro/astro/pull/5484) [`731e99df8`](https://github.com/withastro/astro/commit/731e99df875d40e40f6b33feddd940c3122a5f83) Thanks [@Pimm](https://github.com/Pimm)! - Narrow type of `Params`, as its values cannot be numbers
+
+- [#5480](https://github.com/withastro/astro/pull/5480) [`c13775279`](https://github.com/withastro/astro/commit/c137752797a1af39b758d207af97bf234b3ff08d) Thanks [@sapphi-red](https://github.com/sapphi-red)! - Fix astro preview not working on Windows
+
+- [#5497](https://github.com/withastro/astro/pull/5497) [`ca01a71eb`](https://github.com/withastro/astro/commit/ca01a71eb0937eae3ddc34d48396df8161e830db) Thanks [@bluwy](https://github.com/bluwy)! - Refactor internal plugins code
+
+- [#5460](https://github.com/withastro/astro/pull/5460) [`57888e069`](https://github.com/withastro/astro/commit/57888e06904c48959940fffc5e63ac2e320fd336) Thanks [@bluwy](https://github.com/bluwy)! - Fix linked Astro library style HMR
+
+- [#5477](https://github.com/withastro/astro/pull/5477) [`5e693c214`](https://github.com/withastro/astro/commit/5e693c21438d3a4840cd1906a346d38f05fdb753) Thanks [@bluwy](https://github.com/bluwy)! - Prevent inlining SCSS partials in dev
+
+- [#5498](https://github.com/withastro/astro/pull/5498) [`1a3923da7`](https://github.com/withastro/astro/commit/1a3923da780288e6435fa79ee8fb61e420af344c) Thanks [@bluwy](https://github.com/bluwy)! - Optimize JSX import source detection
+
+## 1.6.11
+
+### Patch Changes
+
+- [#5433](https://github.com/withastro/astro/pull/5433) [`936c1e411`](https://github.com/withastro/astro/commit/936c1e411d77c69b2b60a061c54704200716800a) Thanks [@wtchnm](https://github.com/wtchnm)! - Add missing `fetchpriority` attribute to img, link, script and iframe elements
+
+- [#5437](https://github.com/withastro/astro/pull/5437) [`4b188132e`](https://github.com/withastro/astro/commit/4b188132ef68f8d9951cec86418ef50bb4df4a96) Thanks [@bluwy](https://github.com/bluwy)! - Correctly transform third-party JSX files
+
+- [#5434](https://github.com/withastro/astro/pull/5434) [`f5ed630bc`](https://github.com/withastro/astro/commit/f5ed630bca05ebbfcc6ac994ced3911e41daedcc) Thanks [@matthewp](https://github.com/matthewp)! - Use Vite's resolve to resolve paths for client:only
+
+## 1.6.10
+
+### Patch Changes
+
+- [#5431](https://github.com/withastro/astro/pull/5431) [`1ab505855`](https://github.com/withastro/astro/commit/1ab505855f9942659e3d23cb1ac668f04b98889d) Thanks [@matthewp](https://github.com/matthewp)! - Fix regression with loading .ts in .mjs config
+
+- [#5426](https://github.com/withastro/astro/pull/5426) [`ff35b4759`](https://github.com/withastro/astro/commit/ff35b4759bd0fecfee6c99bf510c2e32d2574992) Thanks [@bluwy](https://github.com/bluwy)! - Fix JSX tagging for anonymous higher-order components default export
+
+- [#5430](https://github.com/withastro/astro/pull/5430) [`b22ba1c03`](https://github.com/withastro/astro/commit/b22ba1c03a3e384dad569feb38fa34ecf7ec3b93) Thanks [@bluwy](https://github.com/bluwy)! - Fix preview --host in Node.js 18
+
+- [#5417](https://github.com/withastro/astro/pull/5417) [`a9f7ff966`](https://github.com/withastro/astro/commit/a9f7ff96676a40b78e22379edc8eb9ce60a29fb8) Thanks [@matthewp](https://github.com/matthewp)! - Prevent dev from crashing when there are errors in template
+
+## 1.6.9
+
+### Patch Changes
+
+- [#5409](https://github.com/withastro/astro/pull/5409) [`9f80a4046`](https://github.com/withastro/astro/commit/9f80a4046ff90e379be68bf03c3c4dd4dd5d6d87) Thanks [@matthewp](https://github.com/matthewp)! - Fix Code component usage in Vercel
+
+- [#5410](https://github.com/withastro/astro/pull/5410) [`3c5cb6948`](https://github.com/withastro/astro/commit/3c5cb69488c76bbf0e9774fff5d948d29990515c) Thanks [@impcyber](https://github.com/impcyber)! - Fix: https://github.com/withastro/astro/issues/5400
+
+- [#5412](https://github.com/withastro/astro/pull/5412) [`a278c7ae6`](https://github.com/withastro/astro/commit/a278c7ae6f2e93cabfe56fc16eb8b82b904ffb3a) Thanks [@matthewp](https://github.com/matthewp)! - Restart dev server on package.json changes
+
+- [#5377](https://github.com/withastro/astro/pull/5377) [`40226dd14`](https://github.com/withastro/astro/commit/40226dd14d9f2d00d943f508dcfc76654c352938) Thanks [@matthewp](https://github.com/matthewp)! - Uses vite to load astro.config.ts files
+
+## 1.6.8
+
+### Patch Changes
+
+- [#5375](https://github.com/withastro/astro/pull/5375) [`f9104354b`](https://github.com/withastro/astro/commit/f9104354b8a2c2457b9cd64405ddf8a832628e26) Thanks [@Princesseuh](https://github.com/Princesseuh)! - Fix regression causing nested arrays in `getStaticPaths`'s return value to throw an error
+
+- [#5346](https://github.com/withastro/astro/pull/5346) [`f3181b5ad`](https://github.com/withastro/astro/commit/f3181b5adf2c7c9157a59f409962274cda3f77ab) Thanks [@bluwy](https://github.com/bluwy)! - Fix .html.astro file routing in dev
+
+- [#5358](https://github.com/withastro/astro/pull/5358) [`9eee0f016`](https://github.com/withastro/astro/commit/9eee0f0166e678dbcc2f6e4ce18bfa6326c95d7e) Thanks [@matthewp](https://github.com/matthewp)! - Properly support trailingSlash: never with a base
+
+- [#5345](https://github.com/withastro/astro/pull/5345) [`3ae2a961b`](https://github.com/withastro/astro/commit/3ae2a961b77da179d24c44734af54424e76a5049) Thanks [@bluwy](https://github.com/bluwy)! - Respect Vite user config for third-party packages config handling
+
+- [#5371](https://github.com/withastro/astro/pull/5371) [`bee8c14af`](https://github.com/withastro/astro/commit/bee8c14afd475ad053b9fdf78a2d29bebdd86926) Thanks [@matthewp](https://github.com/matthewp)! - Prefer the `base` config rather than site config for creating URLs for links and scripts.
+
+- [#5369](https://github.com/withastro/astro/pull/5369) [`e385076ef`](https://github.com/withastro/astro/commit/e385076efe297f457343275e2e7002f71b35792b) Thanks [@natemoo-re](https://github.com/natemoo-re)! - Upgrade `@astrojs/compiler`, fixes regression with `body` handling when `head` contains a Component node
+
 ## 1.6.7
 
 ### Patch Changes
