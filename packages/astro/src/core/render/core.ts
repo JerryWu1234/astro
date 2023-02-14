@@ -3,7 +3,7 @@ import type { LogOptions } from '../logger/core.js';
 import type { RenderContext } from './context.js';
 import type { Environment } from './environment.js';
 
-import { Fragment, renderPage as runtimeRenderPage } from '../../runtime/server/index.js';
+import { renderPage as runtimeRenderPage } from '../../runtime/server/index.js';
 import { attachToResponse } from '../cookies/index.js';
 import { AstroError, AstroErrorData } from '../errors/index.js';
 import { getParams } from '../routing/params.js';
@@ -47,7 +47,7 @@ export async function getParamsAndProps(
 			routeCache.set(route, routeCacheEntry);
 		}
 		const matchedStaticPath = findPathItemByKey(routeCacheEntry.staticPaths, params, route);
-		if (!matchedStaticPath && !ssr) {
+		if (!matchedStaticPath && (ssr ? mod.prerender : true)) {
 			return GetParamsAndPropsError.NoMatchingStaticPath;
 		}
 		// Note: considered using Object.create(...) for performance
@@ -98,6 +98,7 @@ export async function renderPage(mod: ComponentInstance, ctx: RenderContext, env
 		params,
 		props: pageProps,
 		pathname: ctx.pathname,
+		propagation: ctx.propagation,
 		resolve: env.resolve,
 		renderers: env.renderers,
 		request: ctx.request,
@@ -110,14 +111,6 @@ export async function renderPage(mod: ComponentInstance, ctx: RenderContext, env
 	// Support `export const components` for `MDX` pages
 	if (typeof (mod as any).components === 'object') {
 		Object.assign(pageProps, { components: (mod as any).components });
-	}
-
-	// HACK: expose `Fragment` for all MDX components
-	// TODO: Remove in Astro v2 — redundant as of @astrojs/mdx@>0.12.0
-	if (typeof mod.default === 'function' && mod.default.name.startsWith('MDX')) {
-		Object.assign(pageProps, {
-			components: Object.assign((pageProps?.components as any) ?? {}, { Fragment }),
-		});
 	}
 
 	const response = await runtimeRenderPage(

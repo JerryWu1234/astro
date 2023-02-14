@@ -6,13 +6,12 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "check": "astro check && tsc",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/node": "^3.1.0",
-    "astro": "^1.6.12"
+    "@astrojs/node": "^5.0.3",
+    "astro": "^2.0.11"
   }
 }

@@ -80,6 +80,13 @@ class AstroBuilder {
 			{ settings: this.settings, logging, mode: 'build' }
 		);
 		await runHookConfigDone({ settings: this.settings, logging });
+
+		const { sync } = await import('../../cli/sync/index.js');
+		const syncRet = await sync(this.settings, { logging, fs });
+		if (syncRet !== 0) {
+			return process.exit(syncRet);
+		}
+
 		return { viteConfig };
 	}
 
@@ -90,7 +97,7 @@ class AstroBuilder {
 			server: this.settings.config.build.server,
 			serverEntry: this.settings.config.build.serverEntry,
 		};
-		await runHookBuildStart({ config: this.settings.config, buildConfig, logging: this.logging });
+		await runHookBuildStart({ config: this.settings.config, logging: this.logging });
 		this.validateConfig();
 
 		info(this.logging, 'build', `output target: ${colors.green(this.settings.config.output)}`);

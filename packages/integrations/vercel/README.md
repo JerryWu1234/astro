@@ -87,14 +87,36 @@ vercel deploy --prebuilt
 
 To configure this adapter, pass an object to the `vercel()` function call in `astro.config.mjs`:
 
+### analytics
+
+**Type:** `boolean`<br>
+**Available for:** Serverless, Edge, Static<br>
+**Added in:** `@astrojs/vercel@3.1.0`
+
+You can enable [Vercel Analytics](https://vercel.com/analytics) (including Web Vitals and Audiences) by setting `analytics: true`. This will inject Vercel’s tracking scripts into all your pages.
+
+```js
+// astro.config.mjs
+import { defineConfig } from 'astro/config';
+import vercel from '@astrojs/vercel/serverless';
+
+export default defineConfig({
+  output: 'server',
+  adapter: vercel({
+    analytics: true
+  })
+});
+```
+
 ### includeFiles
 
-> **Type:** `string[]`
-> **Available for:** Edge, Serverless
+**Type:** `string[]`<br>
+**Available for:** Edge, Serverless
 
 Use this property to force files to be bundled with your function. This is helpful when you notice missing files.
 
 ```js
+// astro.config.mjs
 import { defineConfig } from 'astro/config';
 import vercel from '@astrojs/vercel/serverless';
 
@@ -107,17 +129,17 @@ export default defineConfig({
 ```
 
 > **Note**
-> When building for the Edge, all the depencies get bundled in a single file to save space. **No extra file will be bundled**. So, if you _need_ some file inside the function, you have to specify it in `includeFiles`.
-
+> When building for the Edge, all the dependencies get bundled in a single file to save space. **No extra file will be bundled**. So, if you _need_ some file inside the function, you have to specify it in `includeFiles`.
 
 ### excludeFiles
 
-> **Type:** `string[]`
-> **Available for:** Serverless
+**Type:** `string[]`<br>
+**Available for:** Serverless
 
 Use this property to exclude any files from the bundling process that would otherwise be included.
 
 ```js
+// astro.config.mjs
 import { defineConfig } from 'astro/config';
 import vercel from '@astrojs/vercel/serverless';
 
@@ -128,6 +150,30 @@ export default defineConfig({
   })
 });
 ```
+
+### Vercel Middleware
+
+You can use Vercel middleware to intercept a request and redirect before sending a response. Vercel middleware can run for Edge, SSR, and Static deployments. You don't need to install `@vercel/edge` to write middleware, but you do need to install it to use features such as geolocation. For more information see [Vercel’s middleware documentation](https://vercel.com/docs/concepts/functions/edge-middleware).
+
+1. Add a `middleware.js` file to the root of your project:
+
+    ```js
+    // middleware.js
+    export const config = {
+      // Only run the middleware on the admin route
+      matcher: '/admin',
+    };
+
+    export default function middleware(request) {
+      const url = new URL(request.url);
+      // You can retrieve IP location or cookies here.
+      if (url.pathname === "/admin") {
+        url.pathname = "/"
+      }
+      return Response.redirect(url);
+    }
+    ```
+1. While developing locally, you can run `vercel dev` to run middleware. In production, Vercel will handle this for you.
 
 ## Troubleshooting
 

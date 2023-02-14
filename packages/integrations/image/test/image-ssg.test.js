@@ -2,8 +2,13 @@ import { expect } from 'chai';
 import * as cheerio from 'cheerio';
 import sizeOf from 'image-size';
 import fs from 'fs/promises';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { join } from 'node:path';
 import { loadFixture } from './test-utils.js';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const toAstroImage = (relpath) =>
+	'/@astroimage' + pathToFileURL(join(__dirname, 'fixtures/basic-image', relpath)).pathname;
 
 describe('SSG images - dev', function () {
 	let fixture;
@@ -25,25 +30,32 @@ describe('SSG images - dev', function () {
 		{
 			title: 'Local images',
 			id: '#social-jpg',
-			url: '/@astroimage/assets/social.jpg',
+			url: toAstroImage('src/assets/social.jpg'),
 			query: { f: 'jpg', w: '506', h: '253' },
 		},
 		{
 			title: 'Local image no transforms',
 			id: '#no-transforms',
-			url: '/@astroimage/assets/social.jpg',
+			url: toAstroImage('src/assets/social.jpg'),
 			query: {},
 		},
 		{
 			title: 'Filename with spaces',
 			id: '#spaces',
-			url: '/@astroimage/assets/blog/introducing astro.jpg',
+			url: toAstroImage('src/assets/blog/introducing astro.jpg'),
 			query: { f: 'webp', w: '768', h: '414' },
+		},
+		{
+			title: 'File outside src',
+			id: '#outside-src',
+			url: toAstroImage('social.png'),
+			query: { f: 'png', w: '2024', h: '1012' },
+			contentType: 'image/png',
 		},
 		{
 			title: 'Inline imports',
 			id: '#inline',
-			url: '/@astroimage/assets/social.jpg',
+			url: toAstroImage('src/assets/social.jpg'),
 			query: { f: 'jpg', w: '506', h: '253' },
 		},
 		{
@@ -123,19 +135,32 @@ describe('SSG images with subpath - dev', function () {
 		{
 			title: 'Local images',
 			id: '#social-jpg',
-			url: '/@astroimage/assets/social.jpg',
+			url: toAstroImage('src/assets/social.jpg'),
 			query: { f: 'jpg', w: '506', h: '253' },
+		},
+		{
+			title: 'Local image no transforms',
+			id: '#no-transforms',
+			url: toAstroImage('src/assets/social.jpg'),
+			query: {},
 		},
 		{
 			title: 'Filename with spaces',
 			id: '#spaces',
-			url: '/@astroimage/assets/blog/introducing astro.jpg',
+			url: toAstroImage('src/assets/blog/introducing astro.jpg'),
 			query: { f: 'webp', w: '768', h: '414' },
+		},
+		{
+			title: 'File outside src',
+			id: '#outside-src',
+			url: toAstroImage('social.png'),
+			query: { f: 'png', w: '2024', h: '1012' },
+			contentType: 'image/png',
 		},
 		{
 			title: 'Inline imports',
 			id: '#inline',
-			url: '/@astroimage/assets/social.jpg',
+			url: toAstroImage('src/assets/social.jpg'),
 			query: { f: 'jpg', w: '506', h: '253' },
 		},
 		{
@@ -210,8 +235,11 @@ describe('SSG images - build', function () {
 	});
 
 	function verifyImage(pathname, expected) {
-		const url = new URL('./fixtures/basic-image/dist/' + pathname, import.meta.url);
-		const dist = fileURLToPath(url);
+		const dist = join(
+			fileURLToPath(new URL('.', import.meta.url)),
+			'fixtures/basic-image/dist',
+			pathname
+		);
 		const result = sizeOf(dist);
 		expect(result).to.deep.equal(expected);
 	}
@@ -220,43 +248,49 @@ describe('SSG images - build', function () {
 		{
 			title: 'Local images',
 			id: '#social-jpg',
-			regex: /^\/assets\/social.\w{8}_\w{4,10}.jpg/,
+			regex: /^\/_astro\/social.\w{8}_\w{4,10}.jpg/,
 			size: { width: 506, height: 253, type: 'jpg' },
 		},
 		{
 			title: 'Filename with spaces',
 			id: '#spaces',
-			regex: /^\/assets\/introducing astro.\w{8}_\w{4,10}.webp/,
+			regex: /^\/_astro\/introducing astro.\w{8}_\w{4,10}.webp/,
 			size: { width: 768, height: 414, type: 'webp' },
+		},
+		{
+			title: 'File outside src',
+			id: '#outside-src',
+			regex: /^\/_astro\/social.\w{8}_\w{4,10}.png/,
+			size: { type: 'png', width: 2024, height: 1012 },
 		},
 		{
 			title: 'Inline imports',
 			id: '#inline',
-			regex: /^\/assets\/social.\w{8}_\w{4,10}.jpg/,
+			regex: /^\/_astro\/social.\w{8}_\w{4,10}.jpg/,
 			size: { width: 506, height: 253, type: 'jpg' },
 		},
 		{
 			title: 'Remote images',
 			id: '#google',
-			regex: /^\/assets\/googlelogo_color_272x92dp_\w{4,10}.webp/,
+			regex: /^\/_astro\/googlelogo_color_272x92dp_\w{4,10}.webp/,
 			size: { width: 544, height: 184, type: 'webp' },
 		},
 		{
 			title: 'Remote without file extension',
 			id: '#ipsum',
-			regex: /^\/assets\/200x300_\w{4,10}/,
+			regex: /^\/_astro\/200x300_\w{4,10}/,
 			size: { width: 200, height: 300, type: 'jpg' },
 		},
 		{
 			title: 'Public images',
 			id: '#hero',
-			regex: /^\/assets\/hero_\w{4,10}.webp/,
+			regex: /^\/_astro\/hero_\w{4,10}.webp/,
 			size: { width: 768, height: 414, type: 'webp' },
 		},
 		{
 			title: 'Remote images',
 			id: '#bg-color',
-			regex: /^\/assets\/googlelogo_color_272x92dp_\w{4,10}.jpeg/,
+			regex: /^\/_astro\/googlelogo_color_272x92dp_\w{4,10}.jpeg/,
 			size: { width: 544, height: 184, type: 'jpg' },
 		},
 	].forEach(({ title, id, regex, size }) => {
@@ -302,43 +336,49 @@ describe('SSG images with subpath - build', function () {
 		{
 			title: 'Local images',
 			id: '#social-jpg',
-			regex: /^\/docs\/assets\/social.\w{8}_\w{4,10}.jpg/,
+			regex: /^\/docs\/_astro\/social.\w{8}_\w{4,10}.jpg/,
 			size: { width: 506, height: 253, type: 'jpg' },
 		},
 		{
 			title: 'Filename with spaces',
 			id: '#spaces',
-			regex: /^\/docs\/assets\/introducing astro.\w{8}_\w{4,10}.webp/,
+			regex: /^\/docs\/_astro\/introducing astro.\w{8}_\w{4,10}.webp/,
 			size: { width: 768, height: 414, type: 'webp' },
+		},
+		{
+			title: 'File outside src',
+			id: '#outside-src',
+			regex: /^\/docs\/_astro\/social.\w{8}_\w{4,10}.png/,
+			size: { type: 'png', width: 2024, height: 1012 },
 		},
 		{
 			title: 'Inline imports',
 			id: '#inline',
-			regex: /^\/docs\/assets\/social.\w{8}_\w{4,10}.jpg/,
+			regex: /^\/docs\/_astro\/social.\w{8}_\w{4,10}.jpg/,
 			size: { width: 506, height: 253, type: 'jpg' },
 		},
 		{
 			title: 'Remote images',
 			id: '#google',
-			regex: /^\/docs\/assets\/googlelogo_color_272x92dp_\w{4,10}.webp/,
+			regex: /^\/docs\/_astro\/googlelogo_color_272x92dp_\w{4,10}.webp/,
 			size: { width: 544, height: 184, type: 'webp' },
 		},
 		{
 			title: 'Remote without file extension',
 			id: '#ipsum',
-			regex: /^\/docs\/assets\/200x300_\w{4,10}/,
+			regex: /^\/docs\/_astro\/200x300_\w{4,10}/,
 			size: { width: 200, height: 300, type: 'jpg' },
 		},
 		{
 			title: 'Public images',
 			id: '#hero',
-			regex: /^\/docs\/assets\/hero_\w{4,10}.webp/,
+			regex: /^\/docs\/_astro\/hero_\w{4,10}.webp/,
 			size: { width: 768, height: 414, type: 'webp' },
 		},
 		{
 			title: 'Remote images',
 			id: '#bg-color',
-			regex: /^\/docs\/assets\/googlelogo_color_272x92dp_\w{4,10}.jpeg/,
+			regex: /^\/docs\/_astro\/googlelogo_color_272x92dp_\w{4,10}.jpeg/,
 			size: { width: 544, height: 184, type: 'jpg' },
 		},
 	].forEach(({ title, id, regex, size }) => {

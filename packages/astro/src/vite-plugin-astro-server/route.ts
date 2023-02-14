@@ -144,6 +144,11 @@ export async function handleRoute(
 		clientAddress: buildingToSSR ? req.socket.remoteAddress : undefined,
 	});
 
+	// Set user specified headers to response object.
+	for (const [name, value] of Object.entries(config.server.headers ?? {})) {
+		if (value) res.setHeader(name, value);
+	}
+
 	// attempt to get static paths
 	// if this fails, we have a bad URL match!
 	const paramsAndPropsRes = await getParamsAndProps({
@@ -195,7 +200,7 @@ export async function handleRoute(
 			if (computedMimeType) {
 				contentType = computedMimeType;
 			}
-			const response = new Response(result.body, {
+			const response = new Response(Buffer.from(result.body, result.encoding), {
 				status: 200,
 				headers: {
 					'Content-Type': `${contentType};charset=utf-8`,

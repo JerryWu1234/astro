@@ -19,23 +19,26 @@ function getAdapter(): AstroAdapter {
 export interface VercelServerlessConfig {
 	includeFiles?: string[];
 	excludeFiles?: string[];
+	analytics?: boolean;
 }
 
 export default function vercelServerless({
 	includeFiles,
 	excludeFiles,
+	analytics,
 }: VercelServerlessConfig = {}): AstroIntegration {
 	let _config: AstroConfig;
 	let buildTempFolder: URL;
 	let functionFolder: URL;
 	let serverEntry: string;
-	let needsBuildConfig = false;
 
 	return {
 		name: PACKAGE_NAME,
 		hooks: {
-			'astro:config:setup': ({ config, updateConfig }) => {
-				needsBuildConfig = !config.build.client;
+			'astro:config:setup': ({ config, updateConfig, injectScript }) => {
+				if (analytics) {
+					injectScript('page', 'import "@astrojs/vercel/analytics"');
+				}
 				const outDir = getVercelOutput(config.root);
 				updateConfig({
 					outDir,
@@ -58,13 +61,6 @@ export default function vercelServerless({
 		[@astrojs/vercel] \`output: "server"\` is required to use the serverless adapter.
 	
 	`);
-				}
-			},
-			'astro:build:start': ({ buildConfig }) => {
-				if (needsBuildConfig) {
-					buildConfig.client = new URL('./static/', _config.outDir);
-					buildTempFolder = buildConfig.server = new URL('./dist/', _config.root);
-					serverEntry = buildConfig.serverEntry = 'entry.js';
 				}
 			},
 			'astro:build:done': async ({ routes }) => {

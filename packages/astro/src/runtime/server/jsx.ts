@@ -5,13 +5,14 @@ import {
 	escapeHTML,
 	HTMLString,
 	markHTMLString,
-	renderComponent,
+	renderComponentToIterable,
 	renderToString,
 	spreadAttributes,
 	voidElementNames,
 } from './index.js';
 import { HTMLParts } from './render/common.js';
 import type { ComponentIterable } from './render/component';
+import { createScopedResult, ScopeFlags } from './render/scope.js';
 
 const ClientOnlyPlaceholder = 'astro-client-only';
 
@@ -94,7 +95,9 @@ Did you forget to import the component or is it possible there is a typo?`);
 						props[key] = value;
 					}
 				}
-				return markHTMLString(await renderToString(result, vnode.type as any, props, slots));
+				const scoped = createScopedResult(result, ScopeFlags.JSX);
+				const html = markHTMLString(await renderToString(scoped, vnode.type as any, props, slots));
+				return html;
 			}
 			case !vnode.type && (vnode.type as any) !== 0:
 				return '';
@@ -177,7 +180,7 @@ Did you forget to import the component or is it possible there is a typo?`);
 			props[Skip.symbol] = skip;
 			let output: ComponentIterable;
 			if (vnode.type === ClientOnlyPlaceholder && vnode.props['client:only']) {
-				output = await renderComponent(
+				output = await renderComponentToIterable(
 					result,
 					vnode.props['client:display-name'] ?? '',
 					null,
@@ -185,7 +188,7 @@ Did you forget to import the component or is it possible there is a typo?`);
 					slots
 				);
 			} else {
-				output = await renderComponent(
+				output = await renderComponentToIterable(
 					result,
 					typeof vnode.type === 'function' ? vnode.type.name : vnode.type,
 					vnode.type,

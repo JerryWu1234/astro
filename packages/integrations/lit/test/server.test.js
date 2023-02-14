@@ -33,12 +33,12 @@ describe('renderToStaticMarkup', () => {
 		}
 	});
 
-	it('should render emtpy component with default markup', async () => {
+	it('should render empty component with default markup', async () => {
 		const tagName = 'nothing-component';
 		customElements.define(tagName, class extends LitElement {});
 		const render = await renderToStaticMarkup(tagName);
 		expect(render).to.deep.equal({
-			html: `<${tagName}><template shadowroot="open"><!--lit-part--><!--/lit-part--></template></${tagName}>`,
+			html: `<${tagName}><template shadowroot="open" shadowrootmode="open"><!--lit-part--><!--/lit-part--></template></${tagName}>`,
 		});
 	});
 

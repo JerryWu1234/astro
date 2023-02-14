@@ -13,21 +13,21 @@ export function getAdapter(args: Args = {}): AstroAdapter {
 
 interface NetlifyFunctionsOptions {
 	dist?: URL;
+	builders?: boolean;
 	binaryMediaTypes?: string[];
 }
 
 function netlifyFunctions({
 	dist,
+	builders,
 	binaryMediaTypes,
 }: NetlifyFunctionsOptions = {}): AstroIntegration {
 	let _config: AstroConfig;
 	let entryFile: string;
-	let needsBuildConfig = false;
 	return {
 		name: '@astrojs/netlify',
 		hooks: {
 			'astro:config:setup': ({ config, updateConfig }) => {
-				needsBuildConfig = !config.build.client;
 				const outDir = dist ?? new URL('./dist/', config.root);
 				updateConfig({
 					outDir,
@@ -38,7 +38,7 @@ function netlifyFunctions({
 				});
 			},
 			'astro:config:done': ({ config, setAdapter }) => {
-				setAdapter(getAdapter({ binaryMediaTypes }));
+				setAdapter(getAdapter({ binaryMediaTypes, builders }));
 				_config = config;
 				entryFile = config.build.serverEntry.replace(/\.m?js/, '');
 
@@ -49,15 +49,9 @@ function netlifyFunctions({
 					);
 				}
 			},
-			'astro:build:start': ({ buildConfig }) => {
-				if (needsBuildConfig) {
-					buildConfig.client = _config.outDir;
-					buildConfig.server = new URL('./.netlify/functions-internal/', _config.root);
-					entryFile = buildConfig.serverEntry.replace(/\.m?js/, '');
-				}
-			},
 			'astro:build:done': async ({ routes, dir }) => {
-				await createRedirects(routes, dir, entryFile, false);
+				const type = builders ? 'builders' : 'functions';
+				await createRedirects(_config, routes, dir, entryFile, type);
 			},
 		},
 	};

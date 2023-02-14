@@ -5,21 +5,26 @@ import nodeFs from 'fs';
 import { fileURLToPath } from 'url';
 import * as vite from 'vite';
 import { crawlFrameworkPkgs } from 'vitefu';
+import {
+	astroContentAssetPropagationPlugin,
+	astroContentImportPlugin,
+	astroContentVirtualModPlugin,
+} from '../content/index.js';
 import astroPostprocessVitePlugin from '../vite-plugin-astro-postprocess/index.js';
 import { vitePluginAstroServer } from '../vite-plugin-astro-server/index.js';
 import astroVitePlugin from '../vite-plugin-astro/index.js';
 import configAliasVitePlugin from '../vite-plugin-config-alias/index.js';
 import envVitePlugin from '../vite-plugin-env/index.js';
+import astroHeadPropagationPlugin from '../vite-plugin-head-propagation/index.js';
 import htmlVitePlugin from '../vite-plugin-html/index.js';
+import { astroInjectEnvTsPlugin } from '../vite-plugin-inject-env-ts/index.js';
 import astroIntegrationsContainerPlugin from '../vite-plugin-integrations-container/index.js';
 import jsxVitePlugin from '../vite-plugin-jsx/index.js';
 import astroLoadFallbackPlugin from '../vite-plugin-load-fallback/index.js';
-import legacyMarkdownVitePlugin from '../vite-plugin-markdown-legacy/index.js';
 import markdownVitePlugin from '../vite-plugin-markdown/index.js';
+import astroScannerPlugin from '../vite-plugin-scanner/index.js';
 import astroScriptsPlugin from '../vite-plugin-scripts/index.js';
 import astroScriptsPageSSRPlugin from '../vite-plugin-scripts/page-ssr.js';
-import { createCustomViteLogger } from './errors/dev/index.js';
-import { resolveDependency } from './util.js';
 
 interface CreateViteOptions {
 	settings: AstroSettings;
@@ -28,7 +33,7 @@ interface CreateViteOptions {
 	fs?: typeof nodeFs;
 }
 
-const ALWAYS_NOEXTERNAL = new Set([
+const ALWAYS_NOEXTERNAL = [
 	// This is only because Vite's native ESM doesn't resolve "exports" correctly.
 	'astro',
 	// Vite fails on nested `.astro` imports without bundling
@@ -38,21 +43,7 @@ const ALWAYS_NOEXTERNAL = new Set([
 	'@nanostores/preact',
 	// fontsource packages are CSS that need to be processed
 	'@fontsource/*',
-]);
-
-function getSsrNoExternalDeps(projectRoot: URL): string[] {
-	let noExternalDeps = [];
-	for (const dep of ALWAYS_NOEXTERNAL) {
-		try {
-			resolveDependency(dep, projectRoot);
-			noExternalDeps.push(dep);
-		} catch {
-			// ignore dependency if *not* installed / present in your project
-			// prevents hard error from Vite!
-		}
-	}
-	return noExternalDeps;
-}
+];
 
 /** Return a common starting point for all Vite actions */
 export async function createVite(
@@ -64,6 +55,12 @@ export async function createVite(
 		isBuild: mode === 'build',
 		viteUserConfig: settings.config.vite,
 		isFrameworkPkgByJson(pkgJson) {
+			// Certain packages will trigger the checks below, but need to be external. A common example are SSR adapters
+			// for node-based platforms, as we need to control the order of the import paths to make sure polyfills are applied in time.
+			if (pkgJson?.astro?.external === true) {
+				return false;
+			}
+
 			return (
 				// Attempt: package relies on `astro`. ✅ Definitely an Astro package
 				pkgJson.peerDependencies?.astro ||
@@ -93,7 +90,7 @@ export async function createVite(
 		appType: 'custom',
 		optimizeDeps: {
 			entries: ['src/**/*'],
-			exclude: ['node-fetch'],
+			exclude: ['astro', 'node-fetch'],
 		},
 		plugins: [
 			configAliasVitePlugin({ settings }),
@@ -104,20 +101,26 @@ export async function createVite(
 			// the build to run very slow as the filewatcher is triggered often.
 			mode !== 'build' && vitePluginAstroServer({ settings, logging, fs }),
 			envVitePlugin({ settings }),
-			settings.config.legacy.astroFlavoredMarkdown
-				? legacyMarkdownVitePlugin({ settings, logging })
-				: markdownVitePlugin({ settings, logging }),
+			markdownVitePlugin({ settings, logging }),
 			htmlVitePlugin(),
 			jsxVitePlugin({ settings, logging }),
 			astroPostprocessVitePlugin({ settings }),
 			astroIntegrationsContainerPlugin({ settings, logging }),
 			astroScriptsPageSSRPlugin({ settings }),
+			astroHeadPropagationPlugin({ settings }),
+			astroScannerPlugin({ settings }),
+			astroInjectEnvTsPlugin({ settings, logging, fs }),
+			astroContentVirtualModPlugin({ settings }),
+			astroContentImportPlugin({ fs, settings }),
+			astroContentAssetPropagationPlugin({ mode }),
 		],
 		publicDir: fileURLToPath(settings.config.publicDir),
 		root: fileURLToPath(settings.config.root),
-		envPrefix: 'PUBLIC_',
+		envPrefix: settings.config.vite?.envPrefix ?? 'PUBLIC_',
 		define: {
-			'import.meta.env.SITE': settings.config.site ? `'${settings.config.site}'` : 'undefined',
+			'import.meta.env.SITE': settings.config.site
+				? JSON.stringify(settings.config.site)
+				: 'undefined',
 		},
 		server: {
 			hmr:
@@ -132,9 +135,6 @@ export async function createVite(
 				// Prevent watching during the build to speed it up
 				ignored: mode === 'build' ? ['**'] : undefined,
 			},
-		},
-		css: {
-			postcss: settings.config.style.postcss || {},
 		},
 		resolve: {
 			alias: [
@@ -155,10 +155,7 @@ export async function createVite(
 			dedupe: ['astro'],
 		},
 		ssr: {
-			noExternal: [
-				...getSsrNoExternalDeps(settings.config.root),
-				...astroPkgsConfig.ssr.noExternal,
-			],
+			noExternal: [...ALWAYS_NOEXTERNAL, ...astroPkgsConfig.ssr.noExternal],
 			// shiki is imported by Code.astro, which is no-externalized (processed by Vite).
 			// However, shiki's deps are in CJS and trips up Vite's dev SSR transform, externalize
 			// shiki to load it with node instead.
@@ -179,7 +176,7 @@ export async function createVite(
 		sortPlugins(result.plugins);
 	}
 
-	result.customLogger = createCustomViteLogger(result.logLevel ?? 'warn');
+	result.customLogger = vite.createLogger(result.logLevel ?? 'warn');
 
 	return result;
 }

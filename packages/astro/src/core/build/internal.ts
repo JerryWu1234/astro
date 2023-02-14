@@ -1,6 +1,8 @@
 import type { OutputChunk, RenderedChunk } from 'rollup';
 import type { PageBuildData, ViteID } from './types';
 
+import { SSRResult } from '../../@types/astro';
+import { PageOptions } from '../../vite-plugin-astro/types';
 import { prependForwardSlash, removeFileExtension } from '../path.js';
 import { viteID } from '../util.js';
 
@@ -21,9 +23,19 @@ export interface BuildInternals {
 	entrySpecifierToBundleMap: Map<string, string>;
 
 	/**
+	 * A map to get a specific page's bundled output file.
+	 */
+	pageToBundleMap: Map<string, string>;
+
+	/**
 	 * A map for page-specific information.
 	 */
 	pagesByComponent: Map<string, PageBuildData>;
+
+	/**
+	 * A map for page-specific output.
+	 */
+	pageOptionsByPage: Map<string, PageOptions>;
 
 	/**
 	 * A map for page-specific information by Vite ID (a path-like string)
@@ -55,6 +67,7 @@ export interface BuildInternals {
 	staticFiles: Set<string>;
 	// The SSR entry chunk. Kept in internals to share between ssr/client build steps
 	ssrEntryChunk?: OutputChunk;
+	propagation: SSRResult['propagation'];
 }
 
 /**
@@ -73,8 +86,10 @@ export function createBuildInternals(): BuildInternals {
 		hoistedScriptIdToHoistedMap,
 		hoistedScriptIdToPagesMap,
 		entrySpecifierToBundleMap: new Map<string, string>(),
+		pageToBundleMap: new Map<string, string>(),
 
 		pagesByComponent: new Map(),
+		pageOptionsByPage: new Map(),
 		pagesByViteID: new Map(),
 		pagesByClientOnly: new Map(),
 
@@ -82,6 +97,7 @@ export function createBuildInternals(): BuildInternals {
 		discoveredClientOnlyComponents: new Set(),
 		discoveredScripts: new Set(),
 		staticFiles: new Set(),
+		propagation: new Map(),
 	};
 }
 
@@ -187,6 +203,31 @@ export function hasPageDataByViteID(internals: BuildInternals, viteid: ViteID): 
 
 export function* eachPageData(internals: BuildInternals) {
 	yield* internals.pagesByComponent.values();
+}
+
+export function hasPrerenderedPages(internals: BuildInternals) {
+	for (const id of internals.pagesByViteID.keys()) {
+		if (internals.pageOptionsByPage.get(id)?.prerender) {
+			return true;
+		}
+	}
+	return false;
+}
+
+export function* eachPrerenderedPageData(internals: BuildInternals) {
+	for (const [id, pageData] of internals.pagesByViteID.entries()) {
+		if (internals.pageOptionsByPage.get(id)?.prerender) {
+			yield pageData;
+		}
+	}
+}
+
+export function* eachServerPageData(internals: BuildInternals) {
+	for (const [id, pageData] of internals.pagesByViteID.entries()) {
+		if (!internals.pageOptionsByPage.get(id)?.prerender) {
+			yield pageData;
+		}
+	}
 }
 
 /**

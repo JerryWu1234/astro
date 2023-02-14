@@ -1,5 +1,6 @@
-import type { InlineConfig } from 'vite';
+import type { default as vite, InlineConfig } from 'vite';
 import type {
+	AstroConfig,
 	AstroSettings,
 	BuildConfig,
 	ComponentInstance,
@@ -13,12 +14,15 @@ import type { RouteCache } from '../render/route-cache';
 
 export type ComponentPath = string;
 export type ViteID = string;
+export type PageOutput = AstroConfig['output'];
 
 export interface PageBuildData {
 	component: ComponentPath;
 	route: RouteData;
 	moduleSpecifier: string;
 	css: Map<string, { depth: number; order: number }>;
+	propagatedStyles: Map<string, Set<string>>;
+	propagatedScripts: Map<string, Set<string>>;
 	hoistedScript: { type: 'inline' | 'external'; value: string } | undefined;
 }
 export type AllPagesData = Record<ComponentPath, PageBuildData>;
@@ -41,3 +45,10 @@ export interface SingleFileBuiltModule {
 	pageMap: Map<ComponentPath, ComponentInstance>;
 	renderers: SSRLoadedRenderer[];
 }
+
+export type ViteBuildReturn = Awaited<ReturnType<typeof vite.build>>;
+export type RollupOutput = Extract<
+	Extract<ViteBuildReturn, Exclude<ViteBuildReturn, Array<any>>>,
+	{ output: any }
+>;
+export type OutputChunk = Extract<RollupOutput['output'][number], { type: 'chunk' }>;

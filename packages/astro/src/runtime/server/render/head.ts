@@ -12,7 +12,7 @@ const uniqueElements = (item: any, index: number, all: any[]) => {
 	);
 };
 
-export function renderHead(result: SSRResult): Promise<string> {
+export function renderAllHeadContent(result: SSRResult) {
 	result._metadata.hasRenderedHead = true;
 	const styles = Array.from(result.styles)
 		.filter(uniqueElements)
@@ -27,16 +27,32 @@ export function renderHead(result: SSRResult): Promise<string> {
 	const links = Array.from(result.links)
 		.filter(uniqueElements)
 		.map((link) => renderElement('link', link, false));
-	return markHTMLString(links.join('\n') + styles.join('\n') + scripts.join('\n'));
+
+	let content = links.join('\n') + styles.join('\n') + scripts.join('\n');
+
+	if (result.extraHead.length > 0) {
+		for (const part of result.extraHead) {
+			content += part;
+		}
+	}
+
+	return markHTMLString(content);
+}
+
+export function* renderHead(result: SSRResult) {
+	yield { type: 'head', result } as const;
 }
 
 // This function is called by Astro components that do not contain a <head> component
 // This accommodates the fact that using a <head> is optional in Astro, so this
 // is called before a component's first non-head HTML element. If the head was
 // already injected it is a noop.
-export async function* maybeRenderHead(result: SSRResult): AsyncIterable<string> {
+export function* maybeRenderHead(result: SSRResult) {
 	if (result._metadata.hasRenderedHead) {
 		return;
 	}
-	yield renderHead(result);
+
+	// This is an instruction informing the page rendering that head might need rendering.
+	// This allows the page to deduplicate head injections.
+	yield { type: 'maybe-head', result, scope: result.scope } as const;
 }
