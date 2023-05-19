@@ -6,8 +6,9 @@ import * as colors from 'kleur/colors';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { mergeConfig as mergeViteConfig } from 'vite';
+import { isHybridMalconfigured } from '../../prerender/utils.js';
 import { AstroError, AstroErrorData } from '../errors/index.js';
-import { LogOptions } from '../logger/core.js';
+import type { LogOptions } from '../logger/core.js';
 import { arraify, isObject, isURL } from '../util.js';
 import { createRelativeSchema } from './schema.js';
 import { loadConfigWithVite } from './vite-load.js';
@@ -96,10 +97,15 @@ export function resolveFlags(flags: Partial<Flags>): CLIFlags {
 		site: typeof flags.site === 'string' ? flags.site : undefined,
 		base: typeof flags.base === 'string' ? flags.base : undefined,
 		port: typeof flags.port === 'number' ? flags.port : undefined,
+		open: typeof flags.open === 'boolean' ? flags.open : undefined,
 		config: typeof flags.config === 'string' ? flags.config : undefined,
 		host:
 			typeof flags.host === 'string' || typeof flags.host === 'boolean' ? flags.host : undefined,
 		drafts: typeof flags.drafts === 'boolean' ? flags.drafts : undefined,
+		experimentalAssets:
+			typeof flags.experimentalAssets === 'boolean' ? flags.experimentalAssets : undefined,
+		experimentalMiddleware:
+			typeof flags.experimentalMiddleware === 'boolean' ? flags.experimentalMiddleware : undefined,
 	};
 }
 
@@ -127,6 +133,14 @@ function mergeCLIFlags(astroConfig: AstroUserConfig, flags: CLIFlags) {
 		// @ts-expect-error astroConfig.server may be a function, but TS doesn't like attaching properties to a function.
 		// TODO: Come back here and refactor to remove this expected error.
 		astroConfig.server.host = flags.host;
+	}
+	if (typeof flags.open === 'boolean') {
+		// @ts-expect-error astroConfig.server may be a function, but TS doesn't like attaching properties to a function.
+		// TODO: Come back here and refactor to remove this expected error.
+		astroConfig.server.open = flags.open;
+	}
+	if (typeof flags.experimentalMiddleware === 'boolean') {
+		astroConfig.experimental.middleware = true;
 	}
 	return astroConfig;
 }
@@ -209,6 +223,12 @@ export async function openConfig(configOptions: LoadConfigOptions): Promise<Open
 		userConfig = config.value;
 	}
 	const astroConfig = await resolveConfig(userConfig, root, flags, configOptions.cmd);
+
+	if (isHybridMalconfigured(astroConfig)) {
+		throw new Error(
+			`The "output" config option must be set to "hybrid" and "experimental.hybridOutput" must be set to true to use the hybrid output mode. Falling back to "static" output mode.`
+		);
+	}
 
 	return {
 		astroConfig,

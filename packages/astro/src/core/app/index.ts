@@ -2,34 +2,39 @@ import type {
 	ComponentInstance,
 	EndpointHandler,
 	ManifestData,
+	MiddlewareResponseHandler,
 	RouteData,
 	SSRElement,
 } from '../../@types/astro';
-import type { LogOptions } from '../logger/core.js';
 import type { RouteInfo, SSRManifest as Manifest } from './types';
 
 import mime from 'mime';
 import { attachToResponse, getSetCookiesFromResponse } from '../cookies/index.js';
-import { call as callEndpoint } from '../endpoint/index.js';
+import { callEndpoint, createAPIContext } from '../endpoint/index.js';
 import { consoleLogDestination } from '../logger/console.js';
-import { error } from '../logger/core.js';
-import { joinPaths, prependForwardSlash, removeTrailingForwardSlash } from '../path.js';
+import { error, type LogOptions } from '../logger/core.js';
+import { callMiddleware } from '../middleware/callMiddleware.js';
+import { prependForwardSlash, removeTrailingForwardSlash } from '../path.js';
 import {
 	createEnvironment,
 	createRenderContext,
-	Environment,
 	renderPage,
+	type Environment,
 } from '../render/index.js';
 import { RouteCache } from '../render/route-cache.js';
 import {
-	createLinkStylesheetElementSet,
+	createAssetLink,
 	createModuleScriptElement,
+	createStylesheetElementSet,
 } from '../render/ssr-element.js';
-import { matchAssets, matchRoute } from '../routing/match.js';
+import { matchRoute } from '../routing/match.js';
 export { deserializeManifest } from './common.js';
+
+const clientLocalsSymbol = Symbol.for('astro.locals');
 
 export const pagesVirtualModuleId = '@astrojs-pages-virtual-entry';
 export const resolvedPagesVirtualModuleId = '\0' + pagesVirtualModuleId;
+const responseSentSymbol = Symbol.for('astro.responseSent');
 
 export interface MatchOptions {
 	matchNotFound?: boolean | undefined;
@@ -60,6 +65,7 @@ export class App {
 			markdown: manifest.markdown,
 			mode: 'production',
 			renderers: manifest.renderers,
+			clientDirectives: manifest.clientDirectives,
 			async resolve(specifier: string) {
 				if (!(specifier in manifest.entryModules)) {
 					throw new Error(`Unable to resolve [${specifier}]`);
@@ -71,7 +77,7 @@ export class App {
 						return bundlePath;
 					}
 					default: {
-						return prependForwardSlash(joinPaths(manifest.base, bundlePath));
+						return createAssetLink(bundlePath, manifest.base, manifest.assetsPrefix);
 					}
 				}
 			},
@@ -96,15 +102,21 @@ export class App {
 		if (this.#manifest.assets.has(url.pathname)) {
 			return undefined;
 		}
-		let pathname = '/' + this.removeBase(url.pathname);
+		let pathname = prependForwardSlash(this.removeBase(url.pathname));
 		let routeData = matchRoute(pathname, this.#manifestData);
 
 		if (routeData) {
+<<<<<<< HEAD
 			const asset = matchAssets(routeData, this.#manifest.assets);
 			if (!/\[.+\]/.test(routeData.route) && asset) return undefined;
+=======
+			if (routeData.prerender) return undefined;
+>>>>>>> 31cbf4357e866abab62bb4ccf949f5a59aec06ac
 			return routeData;
 		} else if (matchNotFound) {
-			return matchRoute('/404', this.#manifestData);
+			const notFoundRouteData = matchRoute('/404', this.#manifestData);
+			if (notFoundRouteData?.prerender) return undefined;
+			return notFoundRouteData;
 		} else {
 			return undefined;
 		}
@@ -124,6 +136,8 @@ export class App {
 				});
 			}
 		}
+
+		Reflect.set(request, clientLocalsSymbol, {});
 
 		// Use the 404 status code for 404.astro components
 		if (routeData.route === '/404') {
@@ -170,9 +184,11 @@ export class App {
 		status = 200
 	): Promise<Response> {
 		const url = new URL(request.url);
-		const pathname = '/' + this.removeBase(url.pathname);
+		const pathname = prependForwardSlash(this.removeBase(url.pathname));
 		const info = this.#routeDataToRouteInfo.get(routeData!)!;
-		const links = createLinkStylesheetElementSet(info.links);
+		// may be used in the future for handling rel=modulepreload, rel=icon, rel=manifest etc.
+		const links = new Set<never>();
+		const styles = createStylesheetElementSet(info.styles);
 
 		let scripts = new Set<SSRElement>();
 		for (const script of info.scripts) {
@@ -189,18 +205,47 @@ export class App {
 		}
 
 		try {
-			const ctx = createRenderContext({
+			const renderContext = await createRenderContext({
 				request,
 				origin: url.origin,
 				pathname,
-				propagation: this.#manifest.propagation,
+				componentMetadata: this.#manifest.componentMetadata,
 				scripts,
+				styles,
 				links,
 				route: routeData,
 				status,
+				mod: mod as any,
+				env: this.#env,
 			});
 
-			const response = await renderPage(mod, ctx, this.#env);
+			const apiContext = createAPIContext({
+				request: renderContext.request,
+				params: renderContext.params,
+				props: renderContext.props,
+				site: this.#env.site,
+				adapterName: this.#env.adapterName,
+			});
+			const onRequest = this.#manifest.middleware?.onRequest;
+			let response;
+			if (onRequest) {
+				response = await callMiddleware<Response>(
+					this.#env.logging,
+					onRequest as MiddlewareResponseHandler,
+					apiContext,
+					() => {
+						return renderPage({ mod, renderContext, env: this.#env, apiContext });
+					}
+				);
+			} else {
+				response = await renderPage({
+					mod,
+					renderContext,
+					env: this.#env,
+					apiContext,
+				});
+			}
+			Reflect.set(request, responseSentSymbol, true);
 			return response;
 		} catch (err: any) {
 			error(this.#logging, 'ssr', err.stack || err.message || String(err));
@@ -221,15 +266,23 @@ export class App {
 		const pathname = '/' + this.removeBase(url.pathname);
 		const handler = mod as unknown as EndpointHandler;
 
-		const ctx = createRenderContext({
+		const ctx = await createRenderContext({
 			request,
 			origin: url.origin,
 			pathname,
 			route: routeData,
 			status,
+			env: this.#env,
+			mod: handler as any,
 		});
 
-		const result = await callEndpoint(handler, this.#env, ctx);
+		const result = await callEndpoint(
+			handler,
+			this.#env,
+			ctx,
+			this.#logging,
+			this.#manifest.middleware
+		);
 
 		if (result.type === 'response') {
 			if (result.response.headers.get('X-Astro-Response') === 'Not-Found') {

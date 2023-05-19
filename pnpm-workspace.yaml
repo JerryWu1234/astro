@@ -3,3 +3,7 @@ packages:
   - 'examples/**/*'
   - 'smoke/**/*'
   - 'scripts'
+  - 'benchmark'
+  - 'benchmark/packages/*'
+  # Below excludes are only for Turbo because it doesn't respect gitignore like pnpm does
+  - '!**/.vercel/**'

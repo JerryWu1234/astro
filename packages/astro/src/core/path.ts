@@ -52,7 +52,18 @@ function isString(path: unknown): path is string {
 }
 
 export function joinPaths(...paths: (string | undefined)[]) {
-	return paths.filter(isString).map(trimSlashes).join('/');
+	return paths
+		.filter(isString)
+		.map((path, i) => {
+			if (i === 0) {
+				return removeTrailingForwardSlash(path);
+			} else if (i === paths.length - 1) {
+				return removeLeadingForwardSlash(path);
+			} else {
+				return trimSlashes(path);
+			}
+		})
+		.join('/');
 }
 
 export function removeFileExtension(path: string) {
@@ -63,4 +74,8 @@ export function removeFileExtension(path: string) {
 export function removeQueryString(path: string) {
 	const index = path.lastIndexOf('?');
 	return index > 0 ? path.substring(0, index) : path;
+}
+
+export function isRemotePath(src: string) {
+	return /^(http|ftp|https):?\/\//.test(src) || src.startsWith('data:');
 }

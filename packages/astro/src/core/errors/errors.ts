@@ -1,5 +1,5 @@
 import type { DiagnosticCode } from '@astrojs/compiler/shared/diagnostics.js';
-import { AstroErrorCodes } from './errors-data.js';
+import type { AstroErrorCodes } from './errors-data.js';
 import { codeFrame } from './printer.js';
 import { getErrorDataByCode } from './utils.js';
 
@@ -27,6 +27,10 @@ type ErrorTypes =
 	| 'MarkdownError'
 	| 'InternalError'
 	| 'AggregateError';
+
+export function isAstroError(e: unknown): e is AstroError {
+	return e instanceof Error && (e as AstroError).type === 'AstroError';
+}
 
 export class AstroError extends Error {
 	// NOTE: If this property is named `code`, Rollup will use it to fill the `pluginCode` property downstream

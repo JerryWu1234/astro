@@ -3,7 +3,7 @@ import { markdownConfigDefaults } from '@astrojs/markdown-remark';
 import type { ILanguageRegistration, IThemeRegistration, Theme } from 'shiki';
 import type { AstroUserConfig, ViteUserConfig } from '../../@types/astro';
 
-import { OutgoingHttpHeaders } from 'http';
+import type { OutgoingHttpHeaders } from 'http';
 import { BUNDLED_THEMES } from 'shiki';
 import { z } from 'zod';
 import { appendForwardSlash, prependForwardSlash, trimSlashes } from '../path.js';
@@ -13,6 +13,7 @@ const ASTRO_CONFIG_DEFAULTS: AstroUserConfig & any = {
 	srcDir: './src',
 	publicDir: './public',
 	outDir: './dist',
+	cacheDir: './node_modules/.astro',
 	base: '/',
 	trailingSlash: 'ignore',
 	build: {
@@ -22,10 +23,12 @@ const ASTRO_CONFIG_DEFAULTS: AstroUserConfig & any = {
 		assets: '_astro',
 		serverEntry: 'entry.mjs',
 	},
+	compressHTML: false,
 	server: {
 		host: false,
 		port: 3000,
 		streaming: true,
+		open: false,
 	},
 	integrations: [],
 	markdown: {
@@ -34,6 +37,13 @@ const ASTRO_CONFIG_DEFAULTS: AstroUserConfig & any = {
 	},
 	vite: {},
 	legacy: {},
+	experimental: {
+		assets: false,
+		hybridOutput: false,
+		customClientDirectives: false,
+		inlineStylesheets: 'never',
+		middleware: false,
+	},
 };
 
 export const AstroConfigSchema = z.object({
@@ -57,16 +67,26 @@ export const AstroConfigSchema = z.object({
 		.optional()
 		.default(ASTRO_CONFIG_DEFAULTS.outDir)
 		.transform((val) => new URL(val)),
+	cacheDir: z
+		.string()
+		.optional()
+		.default(ASTRO_CONFIG_DEFAULTS.cacheDir)
+		.transform((val) => new URL(val)),
 	site: z.string().url().optional(),
+	compressHTML: z.boolean().optional().default(ASTRO_CONFIG_DEFAULTS.compressHTML),
 	base: z.string().optional().default(ASTRO_CONFIG_DEFAULTS.base),
 	trailingSlash: z
 		.union([z.literal('always'), z.literal('never'), z.literal('ignore')])
 		.optional()
 		.default(ASTRO_CONFIG_DEFAULTS.trailingSlash),
 	output: z
-		.union([z.literal('static'), z.literal('server')])
+		.union([z.literal('static'), z.literal('server'), z.literal('hybrid')])
 		.optional()
 		.default('static'),
+	scopedStyleStrategy: z
+		.union([z.literal('where'), z.literal('class')])
+		.optional()
+		.default('where'),
 	adapter: z.object({ name: z.string(), hooks: z.object({}).passthrough().default({}) }).optional(),
 	integrations: z.preprocess(
 		// preprocess
@@ -93,6 +113,7 @@ export const AstroConfigSchema = z.object({
 				.default(ASTRO_CONFIG_DEFAULTS.build.server)
 				.transform((val) => new URL(val)),
 			assets: z.string().optional().default(ASTRO_CONFIG_DEFAULTS.build.assets),
+			assetsPrefix: z.string().optional(),
 			serverEntry: z.string().optional().default(ASTRO_CONFIG_DEFAULTS.build.serverEntry),
 		})
 		.optional()
@@ -105,6 +126,7 @@ export const AstroConfigSchema = z.object({
 		// validate
 		z
 			.object({
+				open: z.boolean().optional().default(ASTRO_CONFIG_DEFAULTS.server.open),
 				host: z
 					.union([z.string(), z.boolean()])
 					.optional()
@@ -115,6 +137,20 @@ export const AstroConfigSchema = z.object({
 			.optional()
 			.default({})
 	),
+	image: z
+		.object({
+			service: z.object({
+				entrypoint: z.union([
+					z.literal('astro/assets/services/sharp'),
+					z.literal('astro/assets/services/squoosh'),
+					z.string(),
+				]),
+				config: z.record(z.any()).default({}),
+			}),
+		})
+		.default({
+			service: { entrypoint: 'astro/assets/services/squoosh', config: {} },
+		}),
 	markdown: z
 		.object({
 			drafts: z.boolean().default(false),
@@ -160,7 +196,40 @@ export const AstroConfigSchema = z.object({
 	vite: z
 		.custom<ViteUserConfig>((data) => data instanceof Object && !Array.isArray(data))
 		.default(ASTRO_CONFIG_DEFAULTS.vite),
-	experimental: z.object({}).optional().default({}),
+	experimental: z
+		.object({
+			assets: z.boolean().optional().default(ASTRO_CONFIG_DEFAULTS.experimental.assets),
+			customClientDirectives: z
+				.boolean()
+				.optional()
+				.default(ASTRO_CONFIG_DEFAULTS.experimental.customClientDirecives),
+			inlineStylesheets: z
+				.enum(['always', 'auto', 'never'])
+				.optional()
+				.default(ASTRO_CONFIG_DEFAULTS.experimental.inlineStylesheets),
+			middleware: z.oboolean().optional().default(ASTRO_CONFIG_DEFAULTS.experimental.middleware),
+			hybridOutput: z.boolean().optional().default(ASTRO_CONFIG_DEFAULTS.experimental.hybridOutput),
+		})
+		.passthrough()
+		.refine(
+			(d) => {
+				const validKeys = Object.keys(ASTRO_CONFIG_DEFAULTS.experimental);
+				const invalidKeys = Object.keys(d).filter((key) => !validKeys.includes(key));
+				if (invalidKeys.length > 0) return false;
+				return true;
+			},
+			(d) => {
+				const validKeys = Object.keys(ASTRO_CONFIG_DEFAULTS.experimental);
+				const invalidKeys = Object.keys(d).filter((key) => !validKeys.includes(key));
+				return {
+					message: `Invalid experimental key: \`${invalidKeys.join(
+						', '
+					)}\`. \nMake sure the spelling is correct, and that your Astro version supports this experiment.\nSee https://docs.astro.build/en/reference/configuration-reference/#experimental-flags for more information.`,
+				};
+			}
+		)
+		.optional()
+		.default({}),
 	legacy: z.object({}).optional().default({}),
 });
 
@@ -176,6 +245,7 @@ export function createRelativeSchema(cmd: string, fileProtocolRoot: URL) {
 			.string()
 			.default(ASTRO_CONFIG_DEFAULTS.srcDir)
 			.transform((val) => new URL(appendForwardSlash(val), fileProtocolRoot)),
+		compressHTML: z.boolean().optional().default(ASTRO_CONFIG_DEFAULTS.compressHTML),
 		publicDir: z
 			.string()
 			.default(ASTRO_CONFIG_DEFAULTS.publicDir)
@@ -183,6 +253,10 @@ export function createRelativeSchema(cmd: string, fileProtocolRoot: URL) {
 		outDir: z
 			.string()
 			.default(ASTRO_CONFIG_DEFAULTS.outDir)
+			.transform((val) => new URL(appendForwardSlash(val), fileProtocolRoot)),
+		cacheDir: z
+			.string()
+			.default(ASTRO_CONFIG_DEFAULTS.cacheDir)
 			.transform((val) => new URL(appendForwardSlash(val), fileProtocolRoot)),
 		build: z
 			.object({
@@ -201,6 +275,7 @@ export function createRelativeSchema(cmd: string, fileProtocolRoot: URL) {
 					.default(ASTRO_CONFIG_DEFAULTS.build.server)
 					.transform((val) => new URL(val, fileProtocolRoot)),
 				assets: z.string().optional().default(ASTRO_CONFIG_DEFAULTS.build.assets),
+				assetsPrefix: z.string().optional(),
 				serverEntry: z.string().optional().default(ASTRO_CONFIG_DEFAULTS.build.serverEntry),
 			})
 			.optional()
@@ -227,6 +302,7 @@ export function createRelativeSchema(cmd: string, fileProtocolRoot: URL) {
 						.optional()
 						.default(ASTRO_CONFIG_DEFAULTS.server.host),
 					port: z.number().optional().default(ASTRO_CONFIG_DEFAULTS.server.port),
+					open: z.boolean().optional().default(ASTRO_CONFIG_DEFAULTS.server.open),
 					headers: z.custom<OutgoingHttpHeaders>().optional(),
 					streaming: z.boolean().optional().default(true),
 				})
@@ -256,7 +332,7 @@ export function createRelativeSchema(cmd: string, fileProtocolRoot: URL) {
 			config.base = sitePathname;
 			/* eslint-disable no-console */
 			console.warn(`The site configuration value includes a pathname of ${sitePathname} but there is no base configuration.
-			
+
 A future version of Astro will stop using the site pathname when producing <link> and <script> tags. Set your site's base with the base configuration.`);
 		}
 

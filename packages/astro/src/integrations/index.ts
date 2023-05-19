@@ -3,18 +3,23 @@ import type { AddressInfo } from 'net';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { InlineConfig, ViteDevServer } from 'vite';
-import {
+import type {
 	AstroConfig,
 	AstroRenderer,
 	AstroSettings,
 	BuildConfig,
+	ContentEntryType,
+	DataEntryType,
 	HookParameters,
 	RouteData,
 } from '../@types/astro.js';
 import type { SerializedSSRManifest } from '../core/app/types';
 import type { PageBuildData } from '../core/build/types';
+import { buildClientDirectiveEntrypoint } from '../core/client-directive/index.js';
 import { mergeConfig } from '../core/config/config.js';
-import { info, LogOptions } from '../core/logger/core.js';
+import { info, type LogOptions } from '../core/logger/core.js';
+import { isHybridOutput } from '../prerender/utils.js';
+import { mdxContentEntryType } from '../vite-plugin-markdown/content-entry-type.js';
 
 async function withTakingALongTimeMsg<T>({
 	name,
@@ -53,6 +58,8 @@ export async function runHookConfigSetup({
 
 	let updatedConfig: AstroConfig = { ...settings.config };
 	let updatedSettings: AstroSettings = { ...settings, config: updatedConfig };
+	let addedClientDirectives = new Map<string, Promise<string>>();
+
 	for (const integration of settings.config.integrations) {
 		/**
 		 * By making integration hooks optional, Astro can now ignore null or undefined Integrations
@@ -66,7 +73,7 @@ export async function runHookConfigSetup({
 		 * ]
 		 * ```
 		 */
-		if (integration?.hooks?.['astro:config:setup']) {
+		if (integration.hooks?.['astro:config:setup']) {
 			const hooks: HookParameters<'astro:config:setup'> = {
 				config: updatedConfig,
 				command,
@@ -94,22 +101,73 @@ export async function runHookConfigSetup({
 				addWatchFile: (path) => {
 					updatedSettings.watchFiles.push(path instanceof URL ? fileURLToPath(path) : path);
 				},
+				addClientDirective: ({ name, entrypoint }) => {
+					if (!settings.config.experimental.customClientDirectives) {
+						throw new Error(
+							`The "${integration.name}" integration is trying to add the "${name}" client directive, but the \`experimental.customClientDirectives\` config is not enabled.`
+						);
+					}
+					if (updatedSettings.clientDirectives.has(name) || addedClientDirectives.has(name)) {
+						throw new Error(
+							`The "${integration.name}" integration is trying to add the "${name}" client directive, but it already exists.`
+						);
+					}
+					addedClientDirectives.set(name, buildClientDirectiveEntrypoint(name, entrypoint));
+				},
 			};
-			// Semi-private `addPageExtension` hook
+
+			// ---
+			// Public, intentionally undocumented hooks - not subject to semver.
+			// Intended for internal integrations (ex. `@astrojs/mdx`),
+			// though accessible to integration authors if discovered.
+
 			function addPageExtension(...input: (string | string[])[]) {
 				const exts = (input.flat(Infinity) as string[]).map((ext) => `.${ext.replace(/^\./, '')}`);
 				updatedSettings.pageExtensions.push(...exts);
 			}
+			function addContentEntryType(contentEntryType: ContentEntryType) {
+				updatedSettings.contentEntryTypes.push(contentEntryType);
+			}
+			function addDataEntryType(dataEntryType: DataEntryType) {
+				updatedSettings.dataEntryTypes.push(dataEntryType);
+			}
+
 			Object.defineProperty(hooks, 'addPageExtension', {
 				value: addPageExtension,
 				writable: false,
 				enumerable: false,
 			});
+			Object.defineProperty(hooks, 'addContentEntryType', {
+				value: addContentEntryType,
+				writable: false,
+				enumerable: false,
+			});
+			Object.defineProperty(hooks, 'addDataEntryType', {
+				value: addDataEntryType,
+				writable: false,
+				enumerable: false,
+			});
+			// ---
+
 			await withTakingALongTimeMsg({
 				name: integration.name,
 				hookResult: integration.hooks['astro:config:setup'](hooks),
 				logging,
 			});
+
+			// Add MDX content entry type to support older `@astrojs/mdx` versions
+			// TODO: remove in next Astro minor release
+			if (
+				integration.name === '@astrojs/mdx' &&
+				!updatedSettings.contentEntryTypes.find((c) => c.extensions.includes('.mdx'))
+			) {
+				addContentEntryType(mdxContentEntryType);
+			}
+
+			// Add custom client directives to settings, waiting for compiled code by esbuild
+			for (const [name, compiled] of addedClientDirectives) {
+				updatedSettings.clientDirectives.set(name, await compiled);
+			}
 		}
 	}
 
@@ -281,7 +339,8 @@ export async function runHookBuildGenerated({
 	buildConfig: BuildConfig;
 	logging: LogOptions;
 }) {
-	const dir = config.output === 'server' ? buildConfig.client : config.outDir;
+	const dir =
+		config.output === 'server' || isHybridOutput(config) ? buildConfig.client : config.outDir;
 
 	for (const integration of config.integrations) {
 		if (integration?.hooks?.['astro:build:generated']) {
@@ -307,7 +366,8 @@ export async function runHookBuildDone({
 	routes: RouteData[];
 	logging: LogOptions;
 }) {
-	const dir = config.output === 'server' ? buildConfig.client : config.outDir;
+	const dir =
+		config.output === 'server' || isHybridOutput(config) ? buildConfig.client : config.outDir;
 	await fs.promises.mkdir(dir, { recursive: true });
 
 	for (const integration of config.integrations) {

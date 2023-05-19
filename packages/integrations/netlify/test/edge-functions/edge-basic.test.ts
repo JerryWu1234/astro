@@ -1,19 +1,17 @@
-// @ts-ignore
-import { runBuild } from './test-utils.ts';
-// @ts-ignore
+import { loadFixture } from './test-utils.ts';
 import { assertEquals, assert, DOMParser } from './deps.ts';
 
-// @ts-ignore
 Deno.env.set('SECRET_STUFF', 'secret');
 
-// @ts-ignore
+// @ts-expect-error
 Deno.test({
 	// TODO: debug why build cannot be found in "await import"
 	ignore: true,
 	name: 'Edge Basics',
 	skip: true,
 	async fn() {
-		let close = await runBuild('./fixtures/edge-basic/');
+		const fixture = loadFixture('./fixtures/edge-basic/');
+		await fixture.runBuild();
 		const { default: handler } = await import(
 			'./fixtures/edge-basic/.netlify/edge-functions/entry.js'
 		);
@@ -29,6 +27,6 @@ Deno.test({
 		const envDiv = doc.querySelector('#env');
 		assertEquals(envDiv?.innerText, 'secret');
 
-		await close();
+		await fixture.cleanup();
 	},
 });

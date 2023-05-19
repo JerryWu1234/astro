@@ -1,5 +1,23 @@
 # @astrojs/telemetry
 
+## 2.1.1
+
+### Patch Changes
+
+- [#6929](https://github.com/withastro/astro/pull/6929) [`ac57b5549`](https://github.com/withastro/astro/commit/ac57b5549f828a17bdbebdaca7ace075307a3c9d) Thanks [@bluwy](https://github.com/bluwy)! - Upgrade undici to v5.22.0
+
+## 2.1.0
+
+### Minor Changes
+
+- [#6213](https://github.com/withastro/astro/pull/6213) [`afbbc4d5b`](https://github.com/withastro/astro/commit/afbbc4d5bfafc1779bac00b41c2a1cb1c90f2808) Thanks [@Princesseuh](https://github.com/Princesseuh)! - Updated compilation settings to disable downlevelling for Node 14
+
+## 2.0.1
+
+### Patch Changes
+
+- [#6355](https://github.com/withastro/astro/pull/6355) [`5aa6580f7`](https://github.com/withastro/astro/commit/5aa6580f775405a4443835bf7eb81f0c65e5aed6) Thanks [@ematipico](https://github.com/ematipico)! - Update `undici` to v5.20.0
+
 ## 2.0.0
 
 ### Major Changes

@@ -1,5 +1,35 @@
 # @astrojs/partytown
 
+## 1.2.2
+
+### Patch Changes
+
+- [#7104](https://github.com/withastro/astro/pull/7104) [`826e02890`](https://github.com/withastro/astro/commit/826e0289005f645b902375b98d5549c6a95ccafa) Thanks [@bluwy](https://github.com/bluwy)! - Specify `"files"` field to only publish necessary files
+
+## 1.2.1
+
+### Patch Changes
+
+- [#7001](https://github.com/withastro/astro/pull/7001) [`ad5c75447`](https://github.com/withastro/astro/commit/ad5c75447af9cfbdcb1f288c5c17229fbd3d6dd2) Thanks [@Waxer59](https://github.com/Waxer59)! - Fixed a code example that was wrongly closed
+
+## 1.2.0
+
+### Minor Changes
+
+- [#6667](https://github.com/withastro/astro/pull/6667) [`aff53c109`](https://github.com/withastro/astro/commit/aff53c109c4f7b08b6b80e58e9ca5cb481131eb5) Thanks [@thebinarymutant](https://github.com/thebinarymutant)! - Expose more partytown config properties
+
+## 1.1.1
+
+### Patch Changes
+
+- [#6494](https://github.com/withastro/astro/pull/6494) [`a13e9d7e3`](https://github.com/withastro/astro/commit/a13e9d7e33baccf51e7d4815f99b481ad174bc57) Thanks [@Yan-Thomas](https://github.com/Yan-Thomas)! - Consistency improvements to several package descriptions
+
+## 1.1.0
+
+### Minor Changes
+
+- [#6213](https://github.com/withastro/astro/pull/6213) [`afbbc4d5b`](https://github.com/withastro/astro/commit/afbbc4d5bfafc1779bac00b41c2a1cb1c90f2808) Thanks [@Princesseuh](https://github.com/Princesseuh)! - Updated compilation settings to disable downlevelling for Node 14
+
 ## 1.0.3
 
 ### Patch Changes

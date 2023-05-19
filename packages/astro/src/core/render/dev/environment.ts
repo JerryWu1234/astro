@@ -1,5 +1,5 @@
 import type { AstroSettings, RuntimeMode } from '../../../@types/astro';
-import { getContentPaths } from '../../../content/index.js';
+import { isHybridOutput } from '../../../prerender/utils.js';
 import type { LogOptions } from '../../logger/core.js';
 import type { ModuleLoader } from '../../module-loader/index';
 import type { Environment } from '../index';
@@ -22,17 +22,15 @@ export function createDevelopmentEnvironment(
 	let env = createEnvironment({
 		adapterName: settings.adapter?.name,
 		logging,
-		markdown: {
-			...settings.config.markdown,
-			contentDir: getContentPaths(settings.config).contentDir,
-		},
+		markdown: settings.config.markdown,
 		mode,
 		// This will be overridden in the dev server
 		renderers: [],
+		clientDirectives: settings.clientDirectives,
 		resolve: createResolve(loader, settings.config.root),
 		routeCache: new RouteCache(logging, mode),
 		site: settings.config.site,
-		ssr: settings.config.output === 'server',
+		ssr: settings.config.output === 'server' || isHybridOutput(settings.config),
 		streaming: true,
 		telemetry: Boolean(settings.forceDisableTelemetry),
 	});

@@ -1,5 +1,6 @@
 import type { MarkdownRenderingOptions } from '@astrojs/markdown-remark';
 import type { RuntimeMode, SSRLoadedRenderer } from '../../@types/astro';
+import { getDefaultClientDirectives } from '../client-directive/default.js';
 import type { LogOptions } from '../logger/core.js';
 import { RouteCache } from './route-cache.js';
 
@@ -16,6 +17,7 @@ export interface Environment {
 	/** "development" or "production" */
 	mode: RuntimeMode;
 	renderers: SSRLoadedRenderer[];
+	clientDirectives: Map<string, string>;
 	resolve: (s: string) => Promise<string>;
 	routeCache: RouteCache;
 	site?: string;
@@ -43,11 +45,10 @@ export function createBasicEnvironment(options: CreateBasicEnvironmentArgs): Env
 		...options,
 		markdown: {
 			...(options.markdown ?? {}),
-			// Stub out, not important for basic rendering
-			contentDir: new URL('file:///src/content/'),
 		},
 		mode,
 		renderers: options.renderers ?? [],
+		clientDirectives: getDefaultClientDirectives(),
 		resolve: options.resolve ?? ((s: string) => Promise.resolve(s)),
 		routeCache: new RouteCache(options.logging, mode),
 		ssr: options.ssr ?? true,
